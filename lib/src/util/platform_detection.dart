@@ -19,6 +19,8 @@ class PlatformDetection {
   /// The method respects these environment variables:
   /// - OTEL_EXPORTER_OTLP_ENDPOINT: The endpoint URL
   /// - OTEL_EXPORTER_OTLP_PROTOCOL: The protocol to use (grpc, http/protobuf)
+  /// - OTEL_EXPORTER_OTLP_HEADERS: General headers as comma-separated key=value pairs
+  /// - OTEL_EXPORTER_OTLP_TRACES_HEADERS: Traces-specific headers (overrides general headers)
   ///
   /// Returns an OtlpGrpcSpanExporter by default or an OtlpHttpSpanExporter for web or
   /// when explicitly configured through environment variables.
@@ -77,15 +79,20 @@ class PlatformDetection {
         httpEndpoint = httpEndpoint.replaceAll(':4317', ':4318');
       }
 
+      final headers = OTelConfig.tracesHeaders;
       if (OTelLog.isDebug()) {
         OTelLog.debug(
           'Creating OtlpHttpSpanExporter with endpoint: $httpEndpoint',
         );
+        if (headers.isNotEmpty) {
+          OTelLog.debug('Using headers for HTTP span exporter: $headers');
+        }
       }
       return OtlpHttpSpanExporter(
         OtlpHttpExporterConfig(
           endpoint: httpEndpoint,
           compression: false, // Web doesn't handle compression well
+          headers: headers.isNotEmpty ? headers : null,
         ),
       );
     } else {
@@ -101,13 +108,21 @@ class PlatformDetection {
         insecure = insecure || !isSecure;
       }
 
+      final headers = OTelConfig.tracesHeaders;
       if (OTelLog.isDebug()) {
         OTelLog.debug(
           'Creating OtlpGrpcSpanExporter with endpoint: $grpcEndpoint, insecure: $insecure',
         );
+        if (headers.isNotEmpty) {
+          OTelLog.debug('Using headers for gRPC span exporter: $headers');
+        }
       }
       return OtlpGrpcSpanExporter(
-        OtlpGrpcExporterConfig(endpoint: grpcEndpoint, insecure: insecure),
+        OtlpGrpcExporterConfig(
+          endpoint: grpcEndpoint,
+          insecure: insecure,
+          headers: headers.isNotEmpty ? headers : null,
+        ),
       );
     }
   }
@@ -120,6 +135,8 @@ class PlatformDetection {
   /// The method respects these environment variables:
   /// - OTEL_EXPORTER_OTLP_ENDPOINT: The endpoint URL
   /// - OTEL_EXPORTER_OTLP_PROTOCOL: The protocol to use (grpc, http/protobuf)
+  /// - OTEL_EXPORTER_OTLP_HEADERS: General headers as comma-separated key=value pairs
+  /// - OTEL_EXPORTER_OTLP_METRICS_HEADERS: Metrics-specific headers (overrides general headers)
   ///
   /// Returns an OtlpGrpcMetricExporter by default or an OtlpHttpMetricExporter for web or
   /// when explicitly configured through environment variables.
@@ -184,15 +201,20 @@ class PlatformDetection {
         httpEndpoint = httpEndpoint.replaceAll(':4317', ':4318');
       }
 
+      final headers = OTelConfig.metricsHeaders;
       if (OTelLog.isDebug()) {
         OTelLog.debug(
           'Creating OtlpHttpMetricExporter with endpoint: $httpEndpoint',
         );
+        if (headers.isNotEmpty) {
+          OTelLog.debug('Using headers for HTTP metric exporter: $headers');
+        }
       }
       return OtlpHttpMetricExporter(
         OtlpHttpMetricExporterConfig(
           endpoint: httpEndpoint,
           compression: false, // Web doesn't handle compression well
+          headers: headers.isNotEmpty ? headers : null,
         ),
       );
     } else {
@@ -208,15 +230,20 @@ class PlatformDetection {
         insecure = insecure || !isSecure;
       }
 
+      final headers = OTelConfig.metricsHeaders;
       if (OTelLog.isDebug()) {
         OTelLog.debug(
           'Creating OtlpGrpcMetricExporter with endpoint: $grpcEndpoint, insecure: $insecure',
         );
+        if (headers.isNotEmpty) {
+          OTelLog.debug('Using headers for gRPC metric exporter: $headers');
+        }
       }
       return OtlpGrpcMetricExporter(
         OtlpGrpcMetricExporterConfig(
           endpoint: grpcEndpoint,
           insecure: insecure,
+          headers: headers.isNotEmpty ? headers : null,
         ),
       );
     }

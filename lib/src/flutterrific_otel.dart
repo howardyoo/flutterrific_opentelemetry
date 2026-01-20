@@ -20,6 +20,7 @@ import 'package:dartastic_opentelemetry_api/dartastic_opentelemetry_api.dart';
 import 'package:uuid/uuid.dart';
 
 import 'metrics/metrics_service.dart';
+import 'util/otel_config.dart';
 
 typedef CommonAttributesFunction = Attributes Function();
 
@@ -261,10 +262,15 @@ class FlutterOTel {
         if (OTelLog.isDebug()) {
           OTelLog.debug('Creating HTTP span exporter for web platform');
         }
+        final headers = OTelConfig.tracesHeaders;
+        if (OTelLog.isDebug() && headers.isNotEmpty) {
+          OTelLog.debug('Using headers for HTTP span exporter: $headers');
+        }
         exporter = OtlpHttpSpanExporter(
           OtlpHttpExporterConfig(
             endpoint: endpoint,
             compression: false, // Web doesn't handle compression well
+            headers: headers.isNotEmpty ? headers : null,
           ),
         );
       } else {
@@ -272,8 +278,16 @@ class FlutterOTel {
         if (OTelLog.isDebug()) {
           OTelLog.debug('Creating gRPC span exporter for native platform');
         }
+        final headers = OTelConfig.tracesHeaders;
+        if (OTelLog.isDebug() && headers.isNotEmpty) {
+          OTelLog.debug('Using headers for gRPC span exporter: $headers');
+        }
         exporter = OtlpGrpcSpanExporter(
-          OtlpGrpcExporterConfig(endpoint: endpoint, insecure: !secure),
+          OtlpGrpcExporterConfig(
+            endpoint: endpoint,
+            insecure: !secure,
+            headers: headers.isNotEmpty ? headers : null,
+          ),
         );
       }
       spanProcessor = sdk.BatchSpanProcessor(
@@ -296,10 +310,15 @@ class FlutterOTel {
         if (OTelLog.isDebug()) {
           OTelLog.debug('Creating HTTP metric exporter for web platform');
         }
+        final headers = OTelConfig.metricsHeaders;
+        if (OTelLog.isDebug() && headers.isNotEmpty) {
+          OTelLog.debug('Using headers for HTTP metric exporter: $headers');
+        }
         metricExporter = OtlpHttpMetricExporter(
           OtlpHttpMetricExporterConfig(
             endpoint: endpoint,
             compression: false, // Web doesn't handle compression well
+            headers: headers.isNotEmpty ? headers : null,
           ),
         );
       } else {
@@ -307,8 +326,16 @@ class FlutterOTel {
         if (OTelLog.isDebug()) {
           OTelLog.debug('Creating gRPC metric exporter for native platform');
         }
+        final headers = OTelConfig.metricsHeaders;
+        if (OTelLog.isDebug() && headers.isNotEmpty) {
+          OTelLog.debug('Using headers for gRPC metric exporter: $headers');
+        }
         metricExporter = OtlpGrpcMetricExporter(
-          OtlpGrpcMetricExporterConfig(endpoint: endpoint, insecure: !secure),
+          OtlpGrpcMetricExporterConfig(
+            endpoint: endpoint,
+            insecure: !secure,
+            headers: headers.isNotEmpty ? headers : null,
+          ),
         );
       }
     }

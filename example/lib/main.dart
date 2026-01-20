@@ -68,6 +68,7 @@ class _MyHomePageState extends State<MyHomePage> {
     });
 
     // Example of manually creating a span for a specific operation
+    // This span will be the parent of any HTTP request spans created within it
     final tracer = FlutterOTel.tracer;
     final span = tracer.startSpan(
       'fetch_data',
@@ -80,13 +81,23 @@ class _MyHomePageState extends State<MyHomePage> {
     );
 
     try {
-      // Simulate network delay
-      await Future.delayed(const Duration(seconds: 2));
+      // Use the instrumented HTTP client to make requests
+      // The HTTP request will automatically create a child span of the fetch_data span
+      final client = InstrumentedHttpClient();
+      
+      // Make an HTTP GET request - this will create a child span "HTTP GET"
+      // that is automatically a child of the fetch_data span
+      final response = await client.get(
+        Uri.parse('https://jsonplaceholder.typicode.com/posts/1'),
+      );
 
       // Add event to the span
       span.addEventNow(
         'data_received',
-        {'bytes_received': 1024, 'response_code': 200}.toAttributes(),
+        {
+          'bytes_received': response.bodyBytes.length,
+          'response_code': response.statusCode,
+        }.toAttributes(),
       );
 
       // End span successfully
@@ -127,7 +138,7 @@ class _MyHomePageState extends State<MyHomePage> {
               child:
                   _isLoading
                       ? const CircularProgressIndicator()
-                      : const Text('Simulate Network Request'),
+                      : const Text('Make HTTP Request'),
             ).withOTelButtonTracking('network_request_button'),
             const SizedBox(height: 20),
             // Using widget extension to track text input

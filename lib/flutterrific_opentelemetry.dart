@@ -16,6 +16,7 @@ export 'src/metrics/metrics_service.dart';
 export 'src/nav/otel_navigator_observer.dart';
 export 'src/nav/otel_go_router_redirect.dart';
 export 'src/common/otel_lifecycle_observer.dart';
+export 'src/trace/http_instrumentation.dart';
 export 'src/trace/interaction_tracker.dart';
 export 'src/trace/ui_tracer.dart';
 export 'src/trace/ui_tracer_provider.dart';

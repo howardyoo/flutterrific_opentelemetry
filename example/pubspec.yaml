@@ -1,0 +1,17 @@
+name: flutterrific_example
+description: Example app for flutterrific_opentelemetry
+version: 1.0.0
+
+environment:
+  sdk: ^3.7.0
+  flutter: ">=1.17.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutterrific_opentelemetry:
+    path: ../
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter

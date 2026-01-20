@@ -126,6 +126,7 @@ class UITracer implements sdk.Tracer {
 
   @override
   /// Start a span now with the given parent span (null for root)
+  /// When parentSpan is null, uses a root context to ensure a new trace is created
   UISpan startSpan(
     String name, {
     UISpanType? uiSpanType,
@@ -137,16 +138,38 @@ class UITracer implements sdk.Tracer {
     List<api.SpanLink>? links,
     bool? isRecording = true,
   }) {
-    sdk.Span delegateSpan = _delegate.startSpan(
-      name,
-      context: context,
-      spanContext: spanContext,
-      parentSpan: parentSpan,
-      kind: kind,
-      attributes: attributes,
-      links: links,
-      isRecording: isRecording,
-    );
+    // When parentSpan is null, we want to create a root span (new trace).
+    // The issue is that the SDK's startSpan method may still use the current
+    // context's active span even when parentSpan is null. To fix this, we use
+    // createSpan instead of startSpan, which doesn't use the current context.
+    // By passing spanContext: null, the SDK will generate a new trace ID.
+    sdk.Span delegateSpan;
+    if (parentSpan == null && context == null) {
+      // Use createSpan instead of startSpan to avoid inheriting from current context
+      // Passing spanContext: null will cause the SDK to generate a new trace ID
+      // This ensures we create a root span with a new trace ID, independent of
+      // any existing context or active spans.
+      delegateSpan = _delegate.createSpan(
+        name: name,
+        spanContext: null, // SDK will generate new trace ID
+        parentSpan: null,
+        kind: kind,
+        attributes: attributes,
+        links: links,
+        isRecording: isRecording,
+      );
+    } else {
+      delegateSpan = _delegate.startSpan(
+        name,
+        context: context,
+        spanContext: spanContext,
+        parentSpan: parentSpan,
+        kind: kind,
+        attributes: attributes,
+        links: links,
+        isRecording: isRecording,
+      );
+    }
 
     return UISpanCreate.create(
       delegateSpan: delegateSpan,
@@ -187,6 +210,7 @@ class UITracer implements sdk.Tracer {
 
   /// Starts a span that describes a route change
   /// It's up to the caller to end the span
+  /// Navigation spans are root spans (no parent) to avoid incorrect nesting
   UISpan startNavigationChangeSpan({
     required String newRouteName,
     required String newRoutePath,
@@ -230,15 +254,19 @@ class UITracer implements sdk.Tracer {
       attrMap[api.NavigationSemantics.previousRouteDuration.key] =
           routeDuration;
     }
+    // Navigation spans are root spans - explicitly set parentSpan to null
+    // to avoid inheriting from lifecycle spans
     final span = startSpan(
       api.NavigationSemantics.navigationAction.key,
       uiSpanType: UISpanType.navigation,
       attributes: attrMap.toAttributes(),
+      parentSpan: null, // Explicitly set to null to make this a root span
     );
     return span;
   }
 
   /// Creates and immediately ends a span for a user interaction
+  /// Interaction spans are root spans (no parent) to avoid incorrect nesting
   void recordUserInteraction(
     String screenName,
     api.OTelSemantic interactionType, {
@@ -266,10 +294,13 @@ class UITracer implements sdk.Tracer {
         attributes,
       );
     }
-    final span = _delegate.startSpan(
+    // Interaction spans are root spans - explicitly set parentSpan to null
+    // to avoid inheriting from lifecycle or navigation spans
+    final span = startSpan(
       spanName,
       kind: api.SpanKind.client,
       attributes: interactionAttributes,
+      parentSpan: null, // Explicitly set to null to make this a root span
     );
 
     if (responseTime != null) {
@@ -281,6 +312,7 @@ class UITracer implements sdk.Tracer {
   }
 
   /// Records an error within the current context
+  /// Error spans inherit from the currently active span to relate errors to their operations
   void recordError(
     String context,
     dynamic error,
@@ -291,7 +323,9 @@ class UITracer implements sdk.Tracer {
       return;
     }
 
-    final span = _delegate.startSpan(
+    // Use startSpan wrapper (not _delegate) to inherit from current context
+    // Don't set parentSpan - let it inherit from current context so errors are attached to active spans
+    final span = startSpan(
       'error.$context',
       kind: api.SpanKind.client,
       attributes:
@@ -310,6 +344,7 @@ class UITracer implements sdk.Tracer {
   }
 
   /// Records a performance metric
+  /// Performance spans are root spans to avoid incorrect nesting
   void recordPerformanceMetric(
     String name,
     Duration duration, {
@@ -319,7 +354,7 @@ class UITracer implements sdk.Tracer {
       return;
     }
 
-    final span = _delegate.startSpan(
+    final span = startSpan(
       'perf.$name',
       kind: api.SpanKind.client,
       attributes:
@@ -329,6 +364,7 @@ class UITracer implements sdk.Tracer {
                 duration.inMilliseconds,
             ...?attributes,
           }.toAttributes(),
+      parentSpan: null, // Explicitly set to null to make this a root span
     );
 
     span.end(endTime: span.startTime.add(duration));
@@ -339,6 +375,7 @@ class UITracer implements sdk.Tracer {
   /// By default is called by [FlutterOTel]'s AppLifecycleObserver if the
   /// app resumes after a configurable timeout.
   /// This should be ended quickly
+  /// Lifecycle spans are root spans (no parent) to start new traces
   UISpan startAppLifecycleSpan({
     required api.AppLifecycleStates? newState,
     required Uint8List newStateId,
@@ -368,10 +405,13 @@ class UITracer implements sdk.Tracer {
           previousStateDuration;
     }
 
+    // Lifecycle spans are root spans - explicitly set parentSpan to null
+    // to avoid inheriting from any active span
     return startSpan(
       api.AppLifecycleSemantics.appLifecycleChange.key,
       uiSpanType: UISpanType.appLifecycle,
       attributes: attributeMap.toAttributes(),
+      parentSpan: null, // Explicitly set to null to make this a root span
     );
   }
 

@@ -9,6 +9,15 @@ class OTelConfig {
   static final protocolEnv = const String.fromEnvironment(
     'OTEL_EXPORTER_OTLP_PROTOCOL',
   );
+  static final headersEnv = const String.fromEnvironment(
+    'OTEL_EXPORTER_OTLP_HEADERS',
+  );
+  static final tracesHeadersEnv = const String.fromEnvironment(
+    'OTEL_EXPORTER_OTLP_TRACES_HEADERS',
+  );
+  static final metricsHeadersEnv = const String.fromEnvironment(
+    'OTEL_EXPORTER_OTLP_METRICS_HEADERS',
+  );
 
   /// Determines the appropriate OTLP endpoint based on platform and environment
   static String get endpoint {
@@ -162,5 +171,87 @@ class OTelConfig {
     } else {
       return {'Content-Type': 'application/x-protobuf'};
     }
+  }
+
+  /// Parse headers from a comma-separated string of key=value pairs
+  /// Example: "key1=value1,key2=value2" -> {"key1": "value1", "key2": "value2"}
+  static Map<String, String> _parseHeaders(String headersString) {
+    final Map<String, String> headers = {};
+    if (headersString.isEmpty) {
+      return headers;
+    }
+
+    // Split by comma and parse each key=value pair
+    final pairs = headersString.split(',');
+    for (final pair in pairs) {
+      final trimmedPair = pair.trim();
+      if (trimmedPair.isEmpty) continue;
+
+      final equalsIndex = trimmedPair.indexOf('=');
+      if (equalsIndex == -1) {
+        // Invalid format, skip this pair
+        if (kDebugMode) {
+          print(
+            'Warning: Invalid header format "$trimmedPair", expected key=value',
+          );
+        }
+        continue;
+      }
+
+      final key = trimmedPair.substring(0, equalsIndex).trim();
+      final value = trimmedPair.substring(equalsIndex + 1).trim();
+
+      if (key.isNotEmpty) {
+        headers[key] = value;
+      }
+    }
+
+    return headers;
+  }
+
+  /// Get headers for traces exporter
+  /// Signal-specific headers (OTEL_EXPORTER_OTLP_TRACES_HEADERS) override
+  /// general headers (OTEL_EXPORTER_OTLP_HEADERS)
+  static Map<String, String> get tracesHeaders {
+    final Map<String, String> headers = {};
+
+    // Start with general headers
+    if (headersEnv.isNotEmpty) {
+      headers.addAll(_parseHeaders(headersEnv));
+    }
+
+    // Override with traces-specific headers
+    if (tracesHeadersEnv.isNotEmpty) {
+      headers.addAll(_parseHeaders(tracesHeadersEnv));
+    }
+
+    return headers;
+  }
+
+  /// Get headers for metrics exporter
+  /// Signal-specific headers (OTEL_EXPORTER_OTLP_METRICS_HEADERS) override
+  /// general headers (OTEL_EXPORTER_OTLP_HEADERS)
+  static Map<String, String> get metricsHeaders {
+    final Map<String, String> headers = {};
+
+    // Start with general headers
+    if (headersEnv.isNotEmpty) {
+      headers.addAll(_parseHeaders(headersEnv));
+    }
+
+    // Override with metrics-specific headers
+    if (metricsHeadersEnv.isNotEmpty) {
+      headers.addAll(_parseHeaders(metricsHeadersEnv));
+    }
+
+    return headers;
+  }
+
+  /// Get headers for general OTLP exporter (used when signal-specific headers are not available)
+  static Map<String, String> get generalHeaders {
+    if (headersEnv.isNotEmpty) {
+      return _parseHeaders(headersEnv);
+    }
+    return {};
   }
 }
