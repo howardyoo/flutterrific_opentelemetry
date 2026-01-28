@@ -65,9 +65,8 @@ cd example && flutter build ios --debug --no-codesign
 cd example && flutter build web
 
 # Run example app with environment variables
-flutter run --dart-define=OTEL_SERVICE_NAME=my-app \
-  --dart-define=OTEL_EXPORTER_OTLP_ENDPOINT=https://otel-collector:4317 \
-  --dart-define=OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+export HONEYCOMB_API_KEY=<your-api-key>
+cd example && ./run-example.sh
 ```
 
 ### Publishing
